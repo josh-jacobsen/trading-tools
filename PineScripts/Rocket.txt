@@ -1,0 +1,29 @@
+//@version=4
+study(title="Rocket", overlay=true, resolution="")
+shortPeriod = input(title="Short MA Period", type=input.integer, defval=50)
+mediumPeriod = input(title="Medium MA Period", type=input.integer, defval=100)
+longPeriod = input(title="Long MA Period", type=input.integer, defval=200)
+
+short = sma(close, shortPeriod)
+medium = sma(close, mediumPeriod)
+long = sma(close, longPeriod)
+
+p1 = plot(short, color = color.red, linewidth=2)
+p2 = plot(medium, color = color.orange, linewidth=2)
+p3 = plot(long, color = color.navy, linewidth=2)
+
+// long signals 
+greenCandleBelowShortMAAboveMediumMA = low < short and close > open and open > medium
+movingAveragesInOrderLong = short > medium and medium > long
+longEntrySignal = greenCandleBelowShortMAAboveMediumMA and movingAveragesInOrderLong
+plotshape(longEntrySignal, style=shape.xcross, location=location.belowbar, color=color.green)
+
+// short signals
+redCandleAboveShortMABelowMediumMA = high > short and close < open and open < medium
+movingAveragesInOrderShort = short < medium and medium < long
+shortEntrySignal = redCandleAboveShortMABelowMediumMA and movingAveragesInOrderShort
+plotshape(shortEntrySignal, style=shape.xcross, location=location.abovebar, color=color.red)
+
+// alerts 
+alertcondition(longEntrySignal, title="Rocket long signal!", message="Rocket long signal on {{ticker}} at {{close}}")
+alertcondition(shortEntrySignal, title="Rocket short signal!", message="Rocket short signal on {{ticker}} at {{close}}")
