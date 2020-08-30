@@ -1,0 +1,42 @@
+//@version=4
+study(title="4 Hour Power", overlay=true, resolution="")
+shortPeriod = input(title="Short MA Period", type=input.integer, defval=50)
+mediumPeriod = input(title="Medium MA Period", type=input.integer, defval=100)
+longPeriod = input(title="Long MA Period", type=input.integer, defval=200)
+resolution = input(title="Higher Timeframe", type=input.resolution, defval="D")
+
+short = sma(close, shortPeriod)
+medium = sma(close, mediumPeriod)
+long = sma(close, longPeriod)
+
+highSmaShort = sma(close, shortPeriod)
+higherPeriodShortMASmooth = security(syminfo.tickerid, resolution, highSmaShort, barmerge.gaps_on, barmerge.lookahead_on)
+
+highSmaMedium = sma(close, mediumPeriod)
+higherPeriodMediumMASmooth = security(syminfo.tickerid, resolution, highSmaMedium, barmerge.gaps_on, barmerge.lookahead_on)
+
+valueOfHighTimeframeShortMA = not na(higherPeriodShortMASmooth[0]) ? higherPeriodShortMASmooth[0] : not na(higherPeriodShortMASmooth[1]) ? higherPeriodShortMASmooth[1] : not na(higherPeriodShortMASmooth[2]) ? higherPeriodShortMASmooth[2] : not na(higherPeriodShortMASmooth[3]) ? higherPeriodShortMASmooth[3] : not na(higherPeriodShortMASmooth[4]) ? higherPeriodShortMASmooth[4] : not na(higherPeriodShortMASmooth[5]) ? higherPeriodShortMASmooth[5] : 100000
+valueOfHighTimeframeMediumMA = not na(higherPeriodMediumMASmooth[0]) ? higherPeriodMediumMASmooth[0] : not na(higherPeriodMediumMASmooth[1]) ? higherPeriodMediumMASmooth[1] : not na(higherPeriodMediumMASmooth[2]) ? higherPeriodMediumMASmooth[2] : not na(higherPeriodMediumMASmooth[3]) ? higherPeriodMediumMASmooth[3] : not na(higherPeriodMediumMASmooth[4]) ? higherPeriodMediumMASmooth[4] : not na(higherPeriodMediumMASmooth[5]) ? higherPeriodMediumMASmooth[5] : 100000
+
+p1 = plot(short, color = color.red, linewidth=2, title="SMA Short (Current timeframe)")
+p2 = plot(medium, color = color.orange, linewidth=2, title="SMA Medium (Current timeframe)")
+p3 = plot(long, color = color.navy, linewidth=2, title="SMA Long (Current timeframe)")
+
+// long signals 
+movingAveragesInOrderLong = short > medium and medium > long
+movingAveragesInOrderLongHigherTimeFrame = valueOfHighTimeframeShortMA > valueOfHighTimeframeMediumMA
+previousBarIsGreenBelowShortMAAboveMediumMA = low < short and close > open and open > medium
+longEntrySignal = previousBarIsGreenBelowShortMAAboveMediumMA and movingAveragesInOrderLong and movingAveragesInOrderLongHigherTimeFrame
+plotshape(longEntrySignal, style=shape.xcross, location=location.belowbar, color=color.green, title="Long entry signal")
+
+// short signals
+movingAveragesInOrderShort = short < medium and medium < long
+movingAveragesInOrderShortHigherTimeFrame = valueOfHighTimeframeShortMA < valueOfHighTimeframeMediumMA
+redCandleAboveShortMABelowMediumMA = high > short and close < open and open < medium
+
+shortEntrySignal = redCandleAboveShortMABelowMediumMA and movingAveragesInOrderShort and movingAveragesInOrderShortHigherTimeFrame
+plotshape(shortEntrySignal, style=shape.xcross, location=location.abovebar, color=color.red, title="Short entry signal")
+
+// alerts 
+alertcondition(longEntrySignal, title="4 Hour Power long signal!", message="4 Hour Power long signal on {{ticker}} at {{close}}")
+alertcondition(shortEntrySignal, title="4 Hour Power short signal!", message="4 Hour Power short signal on {{ticker}} at {{close}}")
