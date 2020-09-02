@@ -1,0 +1,110 @@
+//@version=4
+study(title="Steam", overlay=true, resolution="")
+shortPeriod = input(title="Short MA Period", type=input.integer, defval=50)
+mediumPeriod = input(title="Medium MA Period", type=input.integer, defval=100)
+longPeriod = input(title="Long MA Period", type=input.integer, defval=200)
+daily = input(title="Daily Timeframe", type=input.resolution, defval="D")
+fourHour = input(title="4 Hour Timeframe", type=input.resolution, defval="240")
+
+short = sma(close, shortPeriod)
+medium = sma(close, mediumPeriod)
+long = sma(close, longPeriod)
+
+highSmaShort = sma(close, shortPeriod)
+dailyShortMASmooth = security(syminfo.tickerid, daily, highSmaShort, barmerge.gaps_on, barmerge.lookahead_on)
+fourHourHourSmoothMAShort = security(syminfo.tickerid, fourHour, highSmaShort, barmerge.gaps_on, barmerge.lookahead_on)
+
+highSmaMedium = sma(close, mediumPeriod)
+dailyMediumMASmooth = security(syminfo.tickerid, daily, highSmaMedium, barmerge.gaps_on, barmerge.lookahead_on)
+
+valueOfDailyShortMA = not na(dailyShortMASmooth[0]) ? dailyShortMASmooth[0] : not na(dailyShortMASmooth[1]) ? dailyShortMASmooth[1] : not na(dailyShortMASmooth[2]) ? dailyShortMASmooth[2] : not na(dailyShortMASmooth[3]) ? dailyShortMASmooth[3] : not na(dailyShortMASmooth[4]) ? dailyShortMASmooth[4] : not na(dailyShortMASmooth[5]) ? dailyShortMASmooth[5] : 100000
+valueOfDailyMediumMA = not na(dailyMediumMASmooth[0]) ? dailyMediumMASmooth[0] : not na(dailyMediumMASmooth[1]) ? dailyMediumMASmooth[1] : not na(dailyMediumMASmooth[2]) ? dailyMediumMASmooth[2] : not na(dailyMediumMASmooth[3]) ? dailyMediumMASmooth[3] : not na(dailyMediumMASmooth[4]) ? dailyMediumMASmooth[4] : not na(dailyMediumMASmooth[5]) ? dailyMediumMASmooth[5] : 100000
+
+myFunctionToCheckTheLastValueOfThing(thingToCheckValueOf) => 
+    not na(thingToCheckValueOf[0]) ? thingToCheckValueOf[0] : not na(thingToCheckValueOf[1]) ? thingToCheckValueOf[1] : not na(thingToCheckValueOf[2]) ? thingToCheckValueOf[2] : not na(thingToCheckValueOf[3]) ? thingToCheckValueOf[3] : not na(thingToCheckValueOf[4]) ? thingToCheckValueOf[4] : not na(thingToCheckValueOf[5]) ? thingToCheckValueOf[5] : 100000
+    
+myFunctionToCheckTheLastValueOfThing2(otherThingToCheckValueOf) => 
+    if (not na(otherThingToCheckValueOf[0]))
+        otherThingToCheckValueOf[0]
+    else
+        if (not na(otherThingToCheckValueOf[1]))
+            otherThingToCheckValueOf[1]
+        else
+            if (not na(otherThingToCheckValueOf[2]))
+                otherThingToCheckValueOf[2]
+            else
+                if (not na(otherThingToCheckValueOf[3]))
+                    otherThingToCheckValueOf[3]
+                else 
+                    if (not na(otherThingToCheckValueOf[4]))
+                        otherThingToCheckValueOf[4]
+                    else
+                        if (not na(otherThingToCheckValueOf[5]))
+                            otherThingToCheckValueOf[5]
+                        else 
+                            if (not na(otherThingToCheckValueOf[6]))
+                                otherThingToCheckValueOf[6]
+                            else 
+                                if (not na(otherThingToCheckValueOf[7]))
+                                    otherThingToCheckValueOf[7]
+                                else 
+                                    if (not na(otherThingToCheckValueOf[7]))
+                                        otherThingToCheckValueOf[7]
+                                    else 
+                                        if (not na(otherThingToCheckValueOf[7]))
+                                            otherThingToCheckValueOf[7]
+                                        else 
+                                            if (not na(otherThingToCheckValueOf[7]))
+                                                otherThingToCheckValueOf[7]
+                                            else 
+                                                if (not na(otherThingToCheckValueOf[7]))
+                                                    otherThingToCheckValueOf[7]
+                            
+    
+soyeah2 = myFunctionToCheckTheLastValueOfThing2(dailyShortMASmooth)
+plot(soyeah2, title="so yeah 2")
+
+soYeah = myFunctionToCheckTheLastValueOfThing(dailyShortMASmooth)
+plot(soYeah, title="so yeah")
+
+plot(dailyShortMASmooth, title="value of daily short ma")
+plot(dailyShortMASmooth[1], title="value of daily short ma 1")
+plot(dailyShortMASmooth[2], title="value of daily short ma 2")
+plot(dailyShortMASmooth[3], title="value of daily short ma 3")
+plot(dailyShortMASmooth[4], title="value of daily short ma 4")
+plot(dailyShortMASmooth[5], title="value of daily short ma 5")
+plot(dailyShortMASmooth[6], title="value of daily short ma 6")
+
+plot(fourHourHourSmoothMAShort, title="value of four hour short ma")
+plot(fourHourHourSmoothMAShort[1], title="value of four hour short ma 1")
+plot(fourHourHourSmoothMAShort[2], title="value of four hour short ma 2")
+plot(fourHourHourSmoothMAShort[3], title="vvalue of four hour short ma 3")
+plot(fourHourHourSmoothMAShort[4], title="value of four hour short ma 4")
+plot(fourHourHourSmoothMAShort[5], title="value of four hour short ma 5")
+plot(fourHourHourSmoothMAShort[6], title="value of four hour short ma 6")
+
+
+
+p1 = plot(short, color = color.red, linewidth=2, title="SMA Short (Current timeframe)")
+p2 = plot(medium, color = color.orange, linewidth=2, title="SMA Medium (Current timeframe)")
+p3 = plot(long, color = color.navy, linewidth=2, title="SMA Long (Current timeframe)")
+
+// long signals 
+movingAveragesInOrderLong = short > medium and medium > long
+movingAveragesInOrderLongHigherTimeFrame = valueOfDailyShortMA > valueOfDailyMediumMA
+barIsGreenBelowShortMAAboveMediumMA = low < short and close > open and open > medium
+previousBarIsGreen = close[1] > open[1] 
+longEntrySignal = barIsGreenBelowShortMAAboveMediumMA and movingAveragesInOrderLong and movingAveragesInOrderLongHigherTimeFrame and previousBarIsGreen
+plotshape(longEntrySignal, style=shape.xcross, location=location.belowbar, color=color.green, title="Long entry signal")
+
+// short signals
+movingAveragesInOrderShort = short < medium and medium < long
+movingAveragesInOrderShortHigherTimeFrame = valueOfDailyShortMA < valueOfDailyMediumMA
+barIsRedAboveShortMABelowMediumMA = high > short and close < open and open < medium
+previousBarIsRed = close[1] < open[1]
+shortEntrySignal = barIsRedAboveShortMABelowMediumMA and movingAveragesInOrderShort and movingAveragesInOrderShortHigherTimeFrame and previousBarIsRed
+plotshape(shortEntrySignal, style=shape.xcross, location=location.abovebar, color=color.red, title="Short entry signal")
+
+// alerts 
+alertcondition(longEntrySignal, title="4 Hour Power long signal!", message="4 Hour Power long signal on {{ticker}} at {{close}}")
+alertcondition(shortEntrySignal, title="4 Hour Power short signal!", message="4 Hour Power short signal on {{ticker}} at {{close}}")
