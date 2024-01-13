@@ -1,0 +1,126 @@
+//@version=5
+strategy(title="1 hour momentum", overlay=true, calc_on_every_tick=true)
+
+var shortPeriod = 50
+var mediumPeriod = 100
+var longPeriod = 200
+
+// Calculate SMAs for 1-hour chart
+short1h = ta.sma(close, shortPeriod)
+medium1h = ta.sma(close, mediumPeriod)
+long1h = ta.sma(close, longPeriod)
+
+// Calculate SMAs for 4-hour chart
+short4h = request.security(syminfo.tickerid, "240", ta.sma(close, shortPeriod))
+medium4h = request.security(syminfo.tickerid, "240", ta.sma(close, mediumPeriod))
+long4h = request.security(syminfo.tickerid, "240", ta.sma(close, longPeriod))
+
+// Conditions to check moving average order on both timeframes
+conditionLong = short1h > medium1h and medium1h > long1h and short4h > medium4h and medium4h > long4h
+conditionShort = short1h < medium1h and medium1h < long1h and short4h < medium4h and medium4h < long4h
+
+// Plot SMAs for 1-hour chart
+p1 = plot(short1h, color = color.red, linewidth=2, title="SMA Short 1 Hour")
+p2 = plot(medium1h, color = color.orange, linewidth=2, title="SMA Medium 1 Hour")
+p3 = plot(long1h, color = color.navy, linewidth=2, title="SMA Long 1 Hour")
+
+// Highlight conditions on the chart
+bgcolor(conditionLong ? color.new(color.green, 80) : na)
+bgcolor(conditionShort ? color.new(color.red, 80) : na)
+
+// Track consecutive buy conditions
+var consecutiveBuyConditions = 0
+var longEntryAllowed = false
+var longEntryTriggered = false
+var buyConditionHigh = 0.0
+var lastBuyConditionBarIndex = 0
+var firstTimeConditionLong = false 
+
+// Track consecutive short conditions
+var consecutiveSellConditions = 0
+var shortEntryAllowed = false
+var shortEntryTriggered = false
+var sellConditionLow = 0.0
+var lastSellConditionBarIndex = 0
+var firstTimeConditionShort = false  
+
+if (conditionLong and not firstTimeConditionLong)
+    firstTimeConditionLong := true
+
+if (not conditionLong)
+    firstTimeConditionLong := false
+    longEntryTriggered := false
+
+if (conditionShort and not firstTimeConditionShort)
+    firstTimeConditionShort := true
+
+if (not conditionShort)
+    firstTimeConditionShort := false
+    shortEntryTriggered := false
+
+// Create Buy Signal when touching the 50-period SMA on the 1-hour chart
+buyCondition = open > short1h and low < short1h and close > short1h and conditionLong and consecutiveBuyConditions == 0
+
+// Create Sell Signal when touching the 50-period SMA on the 1-hour chart
+sellCondition = open < short1h and high > short1h and close < short1h and conditionShort and consecutiveSellConditions == 0
+
+// Update consecutive buy conditions
+consecutiveBuyConditions := buyCondition ? 7 : math.max(0, consecutiveBuyConditions - 1)
+
+// Update consecutive short conditions
+consecutiveSellConditions := sellCondition ? 7 : math.max(0, consecutiveSellConditions - 1)
+
+// Record high from the candle that triggers the buyCondition
+if (buyCondition)
+    lastBuyConditionBarIndex := bar_index
+    buyConditionHigh := high
+    longEntryAllowed := true
+
+else if (bar_index - lastBuyConditionBarIndex > 20)
+    buyConditionHigh := 0.0
+
+// Record low from the candle that triggers the sellCondition
+if (sellCondition)
+    lastSellConditionBarIndex := bar_index
+    sellConditionLow := low
+    shortEntryAllowed := true
+else if (bar_index - lastSellConditionBarIndex > 20)
+    sellConditionLow := 0.0
+
+// Allow long entry when the current close is above buyConditionHigh and in a buy period
+longEntry = close > buyConditionHigh and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
+
+// Allow short entry when the current close is below sellConditionLow
+shortEntry = close < sellConditionLow and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
+
+// Reset entry flags after the entry condition is met
+if (longEntry)
+    longEntryAllowed := false
+    longEntryTriggered := true
+    strategy.entry("Long", strategy.long, stop=buyConditionHigh - syminfo.mintick * 20, limit=buyConditionHigh + syminfo.mintick * 40)  // Place a long market order with a 20-pip stop loss and 40-pip take profit
+
+
+if (shortEntry)
+    shortEntryAllowed := false
+    shortEntryTriggered := true
+    strategy.entry("Short", strategy.short, stop=sellConditionLow + syminfo.mintick * 20, limit=sellConditionLow - syminfo.mintick * 40)  // Place a short market order with a 20-pip stop loss and 40-pip take profit
+
+
+// Plot shapes for Buy and Sell signals
+plotshape(series=buyCondition, title="Buy Signal", color=color.green, style=shape.triangleup, location=location.belowbar, size=size.small)
+plotshape(series=sellCondition, title="Sell Signal", color=color.red, style=shape.triangledown, location=location.abovebar, size=size.small)
+
+// Plot shapes for Buy and Sell entries
+plotshape(series=longEntry, title="Buy Entry", color=color.purple, style = shape.triangleup, location=location.belowbar, size=size.small)
+plotshape(series=shortEntry, title="Sell Entry", color=color.purple, style = shape.triangledown, location=location.abovebar, size=size.small)
+
+// Plot the values of buyConditionHigh and sellConditionLow on the chart for every bar
+// Commented out unless needed 
+// plot(buyConditionHigh, title="BuyConditionHigh", color=color.purple, linewidth=2, style=plot.style_line)
+// plot(sellConditionLow, title="SellConditionLow", color=color.purple, linewidth=2, style=plot.style_line)
+
+// Add a line below longEntry at the low for the last 10 candles
+lowestLow = ta.lowest(10)  - syminfo.mintick * 20
+highestHigh = ta.highest(10)  + syminfo.mintick * 20
+// plot(lowestLow, color=color.blue, linewidth=2, title="Lowest Low (Last 10 Candles)")
+// plot(highestHigh, color=color.red, linewidth=2, title="Highest High (Last 10 Candles)")
