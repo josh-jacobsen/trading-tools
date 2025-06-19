@@ -1,32 +1,57 @@
 //@version=6
 strategy(title="1 hour momentum", overlay=true, calc_on_every_tick=true)
 
-shortPeriod = 50
-mediumPeriod = 100
-longPeriod = 200
+// === INPUT PARAMETERS ===
+
+// Moving Average Settings
+shortPeriod = input.int(50, title="Short Period", minval=1, group="Moving Averages")
+mediumPeriod = input.int(100, title="Medium Period", minval=1, group="Moving Averages")
+longPeriod = input.int(200, title="Long Period", minval=1, group="Moving Averages")
+
+// Higher Timeframe Settings
+higherTimeframe = input.timeframe("240", title="Higher Timeframe", group="Timeframe")
+
+// Risk Management
+stopLossPips = input.int(20, title="Stop Loss (Pips)", minval=1, group="Risk Management")
+takeProfitPips = input.int(20, title="Take Profit (Pips)", minval=1, group="Risk Management")
+
+// Signal Control
+cooldownBars = input.int(7, title="Cooldown Bars After Signal", minval=1, group="Signal Control")
+signalExpiryBars = input.int(20, title="Signal Expiry (Bars)", minval=1, group="Signal Control")
+
+// Entry Confirmation
+confirmationOffset = input.int(20, title="Entry Confirmation Offset (Pips)", minval=0, group="Entry Settings", tooltip="Additional pips above/below signal level for entry confirmation")
+
+// Display Options
+showMA = input.bool(true, title="Show Moving Averages", group="Display")
+showBackgroundColor = input.bool(true, title="Show Background Highlighting", group="Display")
+showSignalShapes = input.bool(true, title="Show Signal Shapes", group="Display")
+showEntryShapes = input.bool(true, title="Show Entry Shapes", group="Display")
+showTradeLines = input.bool(true, title="Show Trade Entry/Exit Lines", group="Display")
+showTradeLabels = input.bool(true, title="Show Trade Labels", group="Display")
 
 // Calculate SMAs for 1-hour chart
 short1h = ta.sma(close, shortPeriod)
 medium1h = ta.sma(close, mediumPeriod)
 long1h = ta.sma(close, longPeriod)
 
-// Calculate SMAs for 4-hour chart
-short4h = request.security(syminfo.tickerid, "240", ta.sma(close, shortPeriod))
-medium4h = request.security(syminfo.tickerid, "240", ta.sma(close, mediumPeriod))
-long4h = request.security(syminfo.tickerid, "240", ta.sma(close, longPeriod))
+// Calculate SMAs for higher timeframe
+short4h = request.security(syminfo.tickerid, higherTimeframe, ta.sma(close, shortPeriod))
+medium4h = request.security(syminfo.tickerid, higherTimeframe, ta.sma(close, mediumPeriod))
+long4h = request.security(syminfo.tickerid, higherTimeframe, ta.sma(close, longPeriod))
 
 // Conditions to check moving average order on both timeframes
 conditionLong = short1h > medium1h and medium1h > long1h and short4h > medium4h and medium4h > long4h
 conditionShort = short1h < medium1h and medium1h < long1h and short4h < medium4h and medium4h < long4h
 
-// Plot SMAs for 1-hour chart
-p1 = plot(short1h, color = color.red, linewidth=2, title="SMA Short 1 Hour")
-p2 = plot(medium1h, color = color.orange, linewidth=2, title="SMA Medium 1 Hour")
-p3 = plot(long1h, color = color.navy, linewidth=2, title="SMA Long 1 Hour")
+// Plot SMAs for 1-hour chart (conditional)
+p1 = plot(showMA ? short1h : na, color = color.red, linewidth=2, title="SMA Short 1 Hour")
+p2 = plot(showMA ? medium1h : na, color = color.orange, linewidth=2, title="SMA Medium 1 Hour")
+p3 = plot(showMA ? long1h : na, color = color.navy, linewidth=2, title="SMA Long 1 Hour")
 
-// Highlight conditions on the chart
-bgcolor(conditionLong ? color.new(color.green, 80) : na)
-bgcolor(conditionShort ? color.new(color.red, 80) : na)
+// Highlight conditions on the chart (conditional)
+bgcolor(showBackgroundColor and conditionLong ? color.new(color.green, 80) : na)
+bgcolor(showBackgroundColor and conditionShort ? color.new(color.red, 80) : na)
 
 // Track consecutive buy conditions
 var int consecutiveBuyConditions = 0
@@ -43,6 +68,16 @@ var bool shortEntryTriggered = false
 var float sellConditionLow = 0.0
 var int lastSellConditionBarIndex = 0
 var bool firstTimeConditionShort = false  
+
+// Trade tracking variables
+var float longEntryPrice = 0.0
+var float shortEntryPrice = 0.0
+var int longEntryBar = 0
+var int shortEntryBar = 0
+var float longStopLoss = 0.0
+var float longTakeProfit = 0.0
+var float shortStopLoss = 0.0
+var float shortTakeProfit = 0.0  
 
 if (conditionLong and not firstTimeConditionLong)
     firstTimeConditionLong := true
@@ -65,10 +100,10 @@ buyCondition = open > short1h and low < short1h and close > short1h and conditio
 sellCondition = open < short1h and high > short1h and close < short1h and conditionShort and consecutiveSellConditions == 0
 
 // Update consecutive buy conditions
-consecutiveBuyConditions := buyCondition ? 7 : math.max(0, consecutiveBuyConditions - 1)
+consecutiveBuyConditions := buyCondition ? cooldownBars : math.max(0, consecutiveBuyConditions - 1)
 
 // Update consecutive short conditions
-consecutiveSellConditions := sellCondition ? 7 : math.max(0, consecutiveSellConditions - 1)
+consecutiveSellConditions := sellCondition ? cooldownBars : math.max(0, consecutiveSellConditions - 1)
 
 // Record high from the candle that triggers the buyCondition
 if (buyCondition)
@@ -76,7 +111,7 @@ if (buyCondition)
     buyConditionHigh := high
     longEntryAllowed := true
 
-else if (bar_index - lastBuyConditionBarIndex > 20)
+else if (bar_index - lastBuyConditionBarIndex > signalExpiryBars)
     buyConditionHigh := 0.0
 
 // Record low from the candle that triggers the sellCondition
@@ -84,37 +119,100 @@ if (sellCondition)
     lastSellConditionBarIndex := bar_index
     sellConditionLow := low
     shortEntryAllowed := true
-else if (bar_index - lastSellConditionBarIndex > 20)
+else if (bar_index - lastSellConditionBarIndex > signalExpiryBars)
     sellConditionLow := 0.0
 
 // Allow long entry when the current close is above buyConditionHigh and in a buy period
-longEntry = close > buyConditionHigh and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
+longEntry = close > (buyConditionHigh + syminfo.mintick * confirmationOffset) and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
 
 // Allow short entry when the current close is below sellConditionLow
-shortEntry = close < sellConditionLow and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
+shortEntry = close < (sellConditionLow - syminfo.mintick * confirmationOffset) and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
 
 // Reset entry flags after the entry condition is met
 if (longEntry)
     longEntryAllowed := false
     longEntryTriggered := true
-    strategy.entry("Long", strategy.long, 1, stop=buyConditionHigh - syminfo.mintick * 20, limit=buyConditionHigh + syminfo.mintick * 20)  // Place a long market order with a 20-pip stop loss and 40-pip take profit
+    longEntryPrice := close
+    longEntryBar := bar_index
+    longStopLoss := buyConditionHigh - syminfo.mintick * stopLossPips
+    longTakeProfit := buyConditionHigh + syminfo.mintick * takeProfitPips
+    strategy.entry("Long", strategy.long, qty=1)
+    strategy.exit("Long Exit", "Long", stop=longStopLoss, limit=longTakeProfit)
     alert("Long Entry triggered!", alert.freq_once_per_bar)
-
 
 if (shortEntry)
     shortEntryAllowed := false
     shortEntryTriggered := true
-    strategy.entry("Short", strategy.short, 1, stop=sellConditionLow + syminfo.mintick * 20, limit=sellConditionLow - syminfo.mintick * 20)  // Place a short market order with a 20-pip stop loss and 40-pip take profit
+    shortEntryPrice := close
+    shortEntryBar := bar_index
+    shortStopLoss := sellConditionLow + syminfo.mintick * stopLossPips
+    shortTakeProfit := sellConditionLow - syminfo.mintick * takeProfitPips
+    strategy.entry("Short", strategy.short, qty=1)
+    strategy.exit("Short Exit", "Short", stop=shortStopLoss, limit=shortTakeProfit)
     alert("Short Entry triggered!", alert.freq_once_per_bar)
 
 
-// Plot shapes for Buy and Sell signals
-plotshape(series=buyCondition, title="Buy Signal", color=color.green, style=shape.triangleup, location=location.belowbar, size=size.small)
-plotshape(series=sellCondition, title="Sell Signal", color=color.red, style=shape.triangledown, location=location.abovebar, size=size.small)
+// Plot shapes for Buy and Sell signals (conditional)
+plotshape(series=showSignalShapes and buyCondition, title="Buy Signal", color=color.green, style=shape.triangleup, location=location.belowbar, size=size.small)
+plotshape(series=showSignalShapes and sellCondition, title="Sell Signal", color=color.red, style=shape.triangledown, location=location.abovebar, size=size.small)
 
-// Plot shapes for Buy and Sell entries
-plotshape(series=longEntry, title="Buy Entry", color=color.purple, style = shape.triangleup, location=location.belowbar, size=size.small)
-plotshape(series=shortEntry, title="Sell Entry", color=color.purple, style = shape.triangledown, location=location.abovebar, size=size.small)
+// Plot shapes for Buy and Sell entries (conditional)
+plotshape(series=showEntryShapes and longEntry, title="Buy Entry", color=color.purple, style = shape.triangleup, location=location.belowbar, size=size.small)
+plotshape(series=showEntryShapes and shortEntry, title="Sell Entry", color=color.purple, style = shape.triangledown, location=location.abovebar, size=size.small)
+
+// Trade tracking and visualization
+var line longEntryLine = na
+var line longExitLine = na
+var line shortEntryLine = na
+var line shortExitLine = na
+var label longEntryLabel = na
+var label longExitLabel = na
+var label shortEntryLabel = na
+var label shortExitLabel = na
+
+// Track position changes and plot trade lines
+if (strategy.position_size != strategy.position_size[1])
+    // Position opened
+    if (strategy.position_size > 0 and strategy.position_size[1] <= 0) // Long opened
+        if (showTradeLines)
+            longEntryLine := line.new(bar_index, longEntryPrice, bar_index, longEntryPrice, color=color.green, width=2, style=line.style_solid)
+        if (showTradeLabels)
+            longEntryLabel := label.new(bar_index, longEntryPrice, text="LONG\n" + str.tostring(longEntryPrice, "#.####"), color=color.green, style=label.style_label_up, textcolor=color.white, size=size.small)
+    
+    else if (strategy.position_size < 0 and strategy.position_size[1] >= 0) // Short opened
+        if (showTradeLines)
+            shortEntryLine := line.new(bar_index, shortEntryPrice, bar_index, shortEntryPrice, color=color.red, width=2, style=line.style_solid)
+        if (showTradeLabels)
+            shortEntryLabel := label.new(bar_index, shortEntryPrice, text="SHORT\n" + str.tostring(shortEntryPrice, "#.####"), color=color.red, style=label.style_label_down, textcolor=color.white, size=size.small)
+    
+    // Position closed
+    else if (strategy.position_size == 0 and strategy.position_size[1] != 0)
+        exitPrice = close
+        if (strategy.position_size[1] > 0) // Long closed
+            if (showTradeLines)
+                longExitLine := line.new(bar_index, exitPrice, bar_index, exitPrice, color=color.blue, width=2, style=line.style_solid)
+                // Connect entry and exit with a line
+                if (not na(longEntryLine))
+                    line.set_x2(longEntryLine, bar_index)
+                    line.set_y2(longEntryLine, exitPrice)
+                    line.set_style(longEntryLine, line.style_dashed)
+            if (showTradeLabels)
+                pnl = exitPrice - longEntryPrice
+                pnlText = pnl > 0 ? "WIN" : "LOSS"
+                longExitLabel := label.new(bar_index, exitPrice, text="EXIT\n" + str.tostring(exitPrice, "#.####") + "\n" + pnlText, color=pnl > 0 ? color.green : color.red, style=label.style_label_down, textcolor=color.white, size=size.small)
+        
+        else if (strategy.position_size[1] < 0) // Short closed
+            if (showTradeLines)
+                shortExitLine := line.new(bar_index, exitPrice, bar_index, exitPrice, color=color.blue, width=2, style=line.style_solid)
+                // Connect entry and exit with a line
+                if (not na(shortEntryLine))
+                    line.set_x2(shortEntryLine, bar_index)
+                    line.set_y2(shortEntryLine, exitPrice)
+                    line.set_style(shortEntryLine, line.style_dashed)
+            if (showTradeLabels)
+                pnl = shortEntryPrice - exitPrice
+                pnlText = pnl > 0 ? "WIN" : "LOSS"
+                shortExitLabel := label.new(bar_index, exitPrice, text="EXIT\n" + str.tostring(exitPrice, "#.####") + "\n" + pnlText, color=pnl > 0 ? color.green : color.red, style=label.style_label_up, textcolor=color.white, size=size.small)
 
 // Plot the values of buyConditionHigh and sellConditionLow on the chart for every bar
 // Commented out unless needed 
