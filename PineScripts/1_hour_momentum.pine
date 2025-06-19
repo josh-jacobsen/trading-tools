@@ -1,9 +1,9 @@
-//@version=5
+//@version=6
 strategy(title="1 hour momentum", overlay=true, calc_on_every_tick=true)
 
-var shortPeriod = 50
-var mediumPeriod = 100
-var longPeriod = 200
+shortPeriod = 50
+mediumPeriod = 100
+longPeriod = 200
 
 // Calculate SMAs for 1-hour chart
 short1h = ta.sma(close, shortPeriod)
@@ -29,20 +29,20 @@ bgcolor(conditionLong ? color.new(color.green, 80) : na)
 bgcolor(conditionShort ? color.new(color.red, 80) : na)
 
 // Track consecutive buy conditions
-var consecutiveBuyConditions = 0
-var longEntryAllowed = false
-var longEntryTriggered = false
-var buyConditionHigh = 0.0
-var lastBuyConditionBarIndex = 0
-var firstTimeConditionLong = false 
+var int consecutiveBuyConditions = 0
+var bool longEntryAllowed = false
+var bool longEntryTriggered = false
+var float buyConditionHigh = 0.0
+var int lastBuyConditionBarIndex = 0
+var bool firstTimeConditionLong = false 
 
 // Track consecutive short conditions
-var consecutiveSellConditions = 0
-var shortEntryAllowed = false
-var shortEntryTriggered = false
-var sellConditionLow = 0.0
-var lastSellConditionBarIndex = 0
-var firstTimeConditionShort = false  
+var int consecutiveSellConditions = 0
+var bool shortEntryAllowed = false
+var bool shortEntryTriggered = false
+var float sellConditionLow = 0.0
+var int lastSellConditionBarIndex = 0
+var bool firstTimeConditionShort = false  
 
 if (conditionLong and not firstTimeConditionLong)
     firstTimeConditionLong := true
@@ -97,13 +97,15 @@ shortEntry = close < sellConditionLow and sellConditionLow != 0.0 and shortEntry
 if (longEntry)
     longEntryAllowed := false
     longEntryTriggered := true
-    strategy.entry("Long", strategy.long, stop=buyConditionHigh - syminfo.mintick * 20, limit=buyConditionHigh + syminfo.mintick * 40)  // Place a long market order with a 20-pip stop loss and 40-pip take profit
+    strategy.entry("Long", strategy.long, 1, stop=buyConditionHigh - syminfo.mintick * 20, limit=buyConditionHigh + syminfo.mintick * 20)  // Place a long market order with a 20-pip stop loss and 40-pip take profit
+    alert("Long Entry triggered!", alert.freq_once_per_bar)
 
 
 if (shortEntry)
     shortEntryAllowed := false
     shortEntryTriggered := true
-    strategy.entry("Short", strategy.short, stop=sellConditionLow + syminfo.mintick * 20, limit=sellConditionLow - syminfo.mintick * 40)  // Place a short market order with a 20-pip stop loss and 40-pip take profit
+    strategy.entry("Short", strategy.short, 1, stop=sellConditionLow + syminfo.mintick * 20, limit=sellConditionLow - syminfo.mintick * 20)  // Place a short market order with a 20-pip stop loss and 40-pip take profit
+    alert("Short Entry triggered!", alert.freq_once_per_bar)
 
 
 // Plot shapes for Buy and Sell signals
@@ -116,8 +118,13 @@ plotshape(series=shortEntry, title="Sell Entry", color=color.purple, style = sha
 
 // Plot the values of buyConditionHigh and sellConditionLow on the chart for every bar
 // Commented out unless needed 
-// plot(buyConditionHigh, title="BuyConditionHigh", color=color.purple, linewidth=2, style=plot.style_line)
-// plot(sellConditionLow, title="SellConditionLow", color=color.purple, linewidth=2, style=plot.style_line)
+// plot(buyConditionHigh, title="BuyConditionHigh", color=color.blue, linewidth=2, style=plot.style_line)
+// plot(buyConditionHigh - syminfo.mintick * 200, title="BuyConditionHighStopLoss", color=color.orange, linewidth=2, style=plot.style_line)
+// plot(buyConditionHigh + syminfo.mintick * 200, title="BuyConditionHighTP", color=color.lime, linewidth=2, style=plot.style_line)
+
+// plot(sellConditionLow, title="SellConditionLow", color=color.red, linewidth=2, style=plot.style_line)
+// plot(sellConditionLow + syminfo.mintick * 200, title="SellConditionLowStopLoss", color=color.orange, linewidth=2, style=plot.style_line)
+// plot(sellConditionLow - syminfo.mintick * 200, title="SellConditionLowTP", color=color.lime, linewidth=2, style=plot.style_line)
 
 // Add a line below longEntry at the low for the last 10 candles
 lowestLow = ta.lowest(10)  - syminfo.mintick * 20
