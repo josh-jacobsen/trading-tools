@@ -14,7 +14,10 @@ higherTimeframe = input.timeframe("240", title="Higher Timeframe", group="Timefr
 // Risk Management
 stopLossPips = input.int(20, title="Stop Loss (Pips)", minval=1, group="Risk Management")
 takeProfitPips = input.int(20, title="Take Profit (Pips)", minval=1, group="Risk Management")
-positionSize = input.float(1.0, title="Position Size", minval=0.01, step=0.01, group="Risk Management", tooltip="Number of units/shares/contracts to trade")
+positionSize = input.float(1.0, title="Position Size (Lots)", minval=0.01, step=0.01, group="Risk Management", tooltip="Number of lots to trade (1 lot = 100,000 units)")
+
+// Convert lots to units for Pine Script
+positionUnits = positionSize * 100000
 
 // Forex pip calculation
 pipValue = syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
@@ -140,7 +143,7 @@ if (longEntry)
     longEntryBar := bar_index
     longStopLoss := buyConditionHigh - pipValue * stopLossPips
     longTakeProfit := buyConditionHigh + pipValue * takeProfitPips
-    strategy.entry("Long", strategy.long, qty=positionSize)
+    strategy.entry("Long", strategy.long, qty=positionUnits)
     strategy.exit("Long Exit", "Long", stop=longStopLoss, limit=longTakeProfit)
     alert("Long Entry triggered!", alert.freq_once_per_bar)
 
@@ -151,7 +154,7 @@ if (shortEntry)
     shortEntryBar := bar_index
     shortStopLoss := sellConditionLow + syminfo.mintick * stopLossPips
     shortTakeProfit := sellConditionLow - syminfo.mintick * takeProfitPips
-    strategy.entry("Short", strategy.short, qty=positionSize)
+    strategy.entry("Short", strategy.short, qty=positionUnits)
     strategy.exit("Short Exit", "Short", stop=shortStopLoss, limit=shortTakeProfit)
     alert("Short Entry triggered!", alert.freq_once_per_bar)
 
