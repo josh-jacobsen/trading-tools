@@ -16,6 +16,9 @@ stopLossPips = input.int(20, title="Stop Loss (Pips)", minval=1, group="Risk Man
 takeProfitPips = input.int(20, title="Take Profit (Pips)", minval=1, group="Risk Management")
 positionSize = input.float(1.0, title="Position Size", minval=0.01, step=0.01, group="Risk Management", tooltip="Number of units/shares/contracts to trade")
 
+// Forex pip calculation
+pipValue = syminfo.type == "forex" ? (syminfo.currency == "JPY" ? 0.01 : 0.0001) : 0.0001
+
 // Signal Control
 cooldownBars = input.int(7, title="Cooldown Bars After Signal", minval=1, group="Signal Control")
 signalExpiryBars = input.int(20, title="Signal Expiry (Bars)", minval=1, group="Signal Control")
@@ -124,10 +127,10 @@ else if (bar_index - lastSellConditionBarIndex > signalExpiryBars)
     sellConditionLow := 0.0
 
 // Allow long entry when the current close is above buyConditionHigh and in a buy period
-longEntry = close > (buyConditionHigh + syminfo.mintick * confirmationOffset) and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
+longEntry = close > (buyConditionHigh + pipValue * confirmationOffset) and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
 
 // Allow short entry when the current close is below sellConditionLow
-shortEntry = close < (sellConditionLow - syminfo.mintick * confirmationOffset) and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
+shortEntry = close < (sellConditionLow - pipValue * confirmationOffset) and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
 
 // Reset entry flags after the entry condition is met
 if (longEntry)
@@ -135,8 +138,8 @@ if (longEntry)
     longEntryTriggered := true
     longEntryPrice := close
     longEntryBar := bar_index
-    longStopLoss := buyConditionHigh - syminfo.mintick * stopLossPips
-    longTakeProfit := buyConditionHigh + syminfo.mintick * takeProfitPips
+    longStopLoss := buyConditionHigh - pipValue * stopLossPips
+    longTakeProfit := buyConditionHigh + pipValue * takeProfitPips
     strategy.entry("Long", strategy.long, qty=positionSize)
     strategy.exit("Long Exit", "Long", stop=longStopLoss, limit=longTakeProfit)
     alert("Long Entry triggered!", alert.freq_once_per_bar)
@@ -226,7 +229,7 @@ if (strategy.position_size != strategy.position_size[1])
 // plot(sellConditionLow - syminfo.mintick * 200, title="SellConditionLowTP", color=color.lime, linewidth=2, style=plot.style_line)
 
 // Add a line below longEntry at the low for the last 10 candles
-lowestLow = ta.lowest(10)  - syminfo.mintick * 20
-highestHigh = ta.highest(10)  + syminfo.mintick * 20
+lowestLow = ta.lowest(10) - pipValue * 20
+highestHigh = ta.highest(10) + pipValue * 20
 // plot(lowestLow, color=color.blue, linewidth=2, title="Lowest Low (Last 10 Candles)")
 // plot(highestHigh, color=color.red, linewidth=2, title="Highest High (Last 10 Candles)")
