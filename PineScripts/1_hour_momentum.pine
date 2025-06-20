@@ -17,7 +17,7 @@ takeProfitPips = input.int(20, title="Take Profit (Pips)", minval=1, group="Risk
 positionSize = input.float(1.0, title="Position Size", minval=0.01, step=0.01, group="Risk Management", tooltip="Number of units/shares/contracts to trade")
 
 // Forex pip calculation
-pipValue = syminfo.type == "forex" ? (syminfo.currency == "JPY" ? 0.01 : 0.0001) : 0.0001
+pipValue = syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
 
 // Signal Control
 cooldownBars = input.int(7, title="Cooldown Bars After Signal", minval=1, group="Signal Control")
