@@ -25,6 +25,7 @@ pipValue = syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
 // Signal Control
 cooldownBars = input.int(7, title="Cooldown Bars After Signal", minval=1, group="Signal Control")
 signalExpiryBars = input.int(20, title="Signal Expiry (Bars)", minval=1, group="Signal Control")
+tradeDirection = input.string("Both", title="Trade Direction", options=["Long Only", "Short Only", "Both"], group="Signal Control", tooltip="Choose whether to take long trades, short trades, or both")
 
 // Entry Confirmation
 confirmationOffset = input.int(20, title="Entry Confirmation Offset (Pips)", minval=0, group="Entry Settings", tooltip="Additional pips above/below signal level for entry confirmation")
@@ -101,10 +102,10 @@ if (not conditionShort)
     shortEntryTriggered := false
 
 // Create Buy Signal when touching the 50-period SMA on the 1-hour chart
-buyCondition = open > short1h and low < short1h and close > short1h and conditionLong and consecutiveBuyConditions == 0
+buyCondition = open > short1h and low < short1h and close > short1h and conditionLong and consecutiveBuyConditions == 0 and not shortEntryTriggered
 
 // Create Sell Signal when touching the 50-period SMA on the 1-hour chart
-sellCondition = open < short1h and high > short1h and close < short1h and conditionShort and consecutiveSellConditions == 0
+sellCondition = open < short1h and high > short1h and close < short1h and conditionShort and consecutiveSellConditions == 0 and not longEntryTriggered
 
 // Update consecutive buy conditions
 consecutiveBuyConditions := buyCondition ? cooldownBars : math.max(0, consecutiveBuyConditions - 1)
@@ -130,10 +131,10 @@ else if (bar_index - lastSellConditionBarIndex > signalExpiryBars)
     sellConditionLow := 0.0
 
 // Allow long entry when the current close is above buyConditionHigh and in a buy period
-longEntry = close > (buyConditionHigh + pipValue * confirmationOffset) and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong
+longEntry = close > (buyConditionHigh + pipValue * confirmationOffset) and buyConditionHigh != 0.0 and longEntryAllowed == true and not longEntryTriggered and conditionLong and (tradeDirection == "Long Only" or tradeDirection == "Both") and strategy.position_size == 0 and not shortEntryTriggered
 
 // Allow short entry when the current close is below sellConditionLow
-shortEntry = close < (sellConditionLow - pipValue * confirmationOffset) and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort
+shortEntry = close < (sellConditionLow - pipValue * confirmationOffset) and sellConditionLow != 0.0 and shortEntryAllowed == true and not shortEntryTriggered and conditionShort and (tradeDirection == "Short Only" or tradeDirection == "Both") and strategy.position_size == 0 and not longEntryTriggered
 
 // Reset entry flags after the entry condition is met
 if (longEntry)
@@ -152,8 +153,8 @@ if (shortEntry)
     shortEntryTriggered := true
     shortEntryPrice := close
     shortEntryBar := bar_index
-    shortStopLoss := sellConditionLow + syminfo.mintick * stopLossPips
-    shortTakeProfit := sellConditionLow - syminfo.mintick * takeProfitPips
+    shortStopLoss := sellConditionLow + pipValue * stopLossPips  
+    shortTakeProfit := sellConditionLow - pipValue * takeProfitPips  
     strategy.entry("Short", strategy.short, qty=positionUnits)
     strategy.exit("Short Exit", "Short", stop=shortStopLoss, limit=shortTakeProfit)
     alert("Short Entry triggered!", alert.freq_once_per_bar)
